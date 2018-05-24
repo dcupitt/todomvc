@@ -2,12 +2,16 @@
 jQuery(function ($) {
 	'use strict';
 
+/* ======= Template ======= */
+
 	Handlebars.registerHelper('eq', function (a, b, options) {
 		return a === b ? options.fn(this) : options.inverse(this);
 	});
 
 	var ENTER_KEY = 13;
 	var ESCAPE_KEY = 27;
+
+/* ======= Utilities ======= */
 
 	var util = {
 		uuid: function () {
@@ -38,6 +42,8 @@ jQuery(function ($) {
 		}
 	};
 
+	/* ======= App ======= */
+
 	var App = {
 		init: function () {
 			this.todos = util.store('todos-jquery');
@@ -48,7 +54,7 @@ jQuery(function ($) {
 			new Router({
 				'/:filter': function (filter) {
 					this.filter = filter;
-					this.render();
+					view.render();
 				}.bind(this)
 			}).init('/all');
 		},
@@ -60,29 +66,12 @@ jQuery(function ($) {
 				.on('change', '.toggle', this.toggle.bind(this))
 				.on('dblclick', 'label', this.edit.bind(this))
 				.on('keyup', '.edit', this.editKeyup.bind(this))
-				.on('focusout', '.edit', this.update.bind(this))
+				.on('focusout', '.edit', this.editAction.bind(this))
 				.on('click', '.destroy', this.destroy.bind(this));
 		},
-		render: function () {
-			var todos = this.getFilteredTodos();
-			$('#todo-list').html(this.todoTemplate(todos));
-			$('#main').toggle(todos.length > 0);
-			$('#toggle-all').prop('checked', this.getActiveTodos().length === 0);
-			this.renderFooter();
-			$('#new-todo').focus();
+		update: function() {
+			view.render();
 			util.store('todos-jquery', this.todos);
-		},
-		renderFooter: function () {
-			var todoCount = this.todos.length;
-			var activeTodoCount = this.getActiveTodos().length;
-			var template = this.footerTemplate({
-				activeTodoCount: activeTodoCount,
-				activeTodoWord: util.pluralize(activeTodoCount, 'item'),
-				completedTodos: todoCount - activeTodoCount,
-				filter: this.filter
-			});
-
-			$('#footer').toggle(todoCount > 0).html(template);
 		},
 		toggleAll: function (e) {
 			var isChecked = $(e.target).prop('checked');
@@ -90,8 +79,7 @@ jQuery(function ($) {
 			this.todos.forEach(function (todo) {
 				todo.completed = isChecked;
 			});
-
-			this.render();
+			this.update();
 		},
 		getActiveTodos: function () {
 			return this.todos.filter(function (todo) {
@@ -117,7 +105,7 @@ jQuery(function ($) {
 		destroyCompleted: function () {
 			this.todos = this.getActiveTodos();
 			this.filter = 'all';
-			this.render();
+			this.update();
 		},
 		// accepts an element from inside the `.item` div and
 		// returns the corresponding index in the `todos` array
@@ -147,13 +135,12 @@ jQuery(function ($) {
 			});
 
 			$input.val('');
-
-			this.render();
+			this.update();
 		},
 		toggle: function (e) {
 			var i = this.indexFromEl(e.target);
 			this.todos[i].completed = !this.todos[i].completed;
-			this.render();
+			this.update();
 		},
 		edit: function (e) {
 			var $input = $(e.target).closest('li').addClass('editing').find('.edit');
@@ -168,7 +155,8 @@ jQuery(function ($) {
 				$(e.target).data('abort', true).blur();
 			}
 		},
-		update: function (e) {
+		/* The following used to be called update, but is more clearly labeled to indicate that it takes actions: (destroy, falsify, or set value) */
+		editAction: function (e) {
 			var el = e.target;
 			var $el = $(el);
 			var val = $el.val().trim();
@@ -183,13 +171,38 @@ jQuery(function ($) {
 			} else {
 				this.todos[this.indexFromEl(el)].title = val;
 			}
-
-			this.render();
+			this.update();
 		},
 		destroy: function (e) {
 			this.todos.splice(this.indexFromEl(e.target), 1);
-			this.render();
+			this.update();
 		}
+	};
+
+	/* ======= View ======= */
+
+	var view = {
+		render: function () {
+			var todos = App.getFilteredTodos();
+			$('#todo-list').html(App.todoTemplate(todos));
+			$('#main').toggle(todos.length > 0);
+			$('#toggle-all').prop('checked', App.getActiveTodos().length === 0);
+			this.renderFooter();
+			$('#new-todo').focus();
+		},
+
+		renderFooter: function () {
+			var todoCount = App.todos.length;
+			var activeTodoCount = App.getActiveTodos().length;
+			var template = App.footerTemplate({
+				activeTodoCount: activeTodoCount,
+				activeTodoWord: util.pluralize(activeTodoCount, 'item'),
+				completedTodos: todoCount - activeTodoCount,
+				filter: App.filter
+			});
+
+			$('#footer').toggle(todoCount > 0).html(template);
+		},
 	};
 
 	App.init();
